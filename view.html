@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <base target="_top">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700&display=swap" rel="stylesheet">
+
+  <style>
+  body {
+    margin: 0;
+    font-family: 'Plus Jakarta Sans', sans-serif;
+    background: #0f172a;
+    color: #f8fafc;
+    padding: 15px;
+  }
+
+  h2 {
+    margin: 10px 0 20px;
+    font-size: 22px;
+    text-align: center;
+  }
+
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 15px;
+    max-width: 1000px;
+    margin: auto;
+  }
+
+  .card {
+    background: #1e293b;
+    padding: 18px;
+    border-radius: 12px;
+    border: 1px solid #334155;
+    text-align: center;
+    min-height: 90px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+  }
+
+  .card p {
+    margin: 0;
+    font-size: 14px;
+    color: #94a3b8;
+  }
+
+  .card h3 {
+    margin: 8px 0 0;
+    font-size: 26px;
+    color: #ef4444;
+  }
+
+  .search-box {
+    margin-top: 25px;
+    background: #1e293b;
+    padding: 15px;
+    border-radius: 12px;
+    border: 1px solid #334155;
+    max-width: 1000px;
+    margin-left: auto;
+    margin-right: auto;
+  }
+
+  input {
+    width: 100%;
+    padding: 12px;
+    border-radius: 8px;
+    border: none;
+    background: #0f172a;
+    color: white;
+    outline: none;
+    font-size: 14px;
+  }
+
+  button {
+    width: 100%;
+    margin-top: 10px;
+    padding: 12px;
+    background: #ef4444;
+    border: none;
+    border-radius: 8px;
+    color: white;
+    font-weight: bold;
+  }
+
+  .result {
+    margin-top: 15px;
+  }
+
+  .item {
+    background: #1e293b;
+    padding: 10px;
+    border-radius: 10px;
+    margin-bottom: 10px;
+    border: 1px solid #334155;
+  }
+
+  @media (max-width: 900px) {
+    .grid {
+      grid-template-columns: repeat(2, 1fr);
+    }
+  }
+
+  @media (max-width: 600px) {
+    .grid {
+      grid-template-columns: repeat(1, 1fr);
+    }
+
+    h2 {
+      font-size: 18px;
+    }
+  }
+</style>
+</head>
+
+<body>
+
+<h2> Management Dashboard</h2>
+
+<div class="grid">
+  <div class="card">
+    <p>Chicken</p>
+    <h3 id="chicken">0</h3>
+  </div>
+
+  <div class="card">
+    <p>Goat</p>
+    <h3 id="goat">0</h3>
+  </div>
+
+  <div class="card">
+    <p>Cow</p>
+    <h3 id="cow">0</h3>
+  </div>
+
+  <div class="card">
+    <p>Camel</p>
+    <h3 id="camel">0</h3>
+  </div>
+</div>
+
+<div class="search-box">
+  <input type="text" id="search" placeholder="Enter DN or Voucher No">
+  <button onclick="search()">Search</button>
+
+  <div class="result" id="result"></div>
+</div>
+
+<script>
+
+function loadStats(){
+  google.script.run.withSuccessHandler(data=>{
+    document.getElementById("chicken").innerText = data.Chicken || 0;
+    document.getElementById("goat").innerText = data.Goat || 0;
+    document.getElementById("cow").innerText = data.Cow || 0;
+    document.getElementById("camel").innerText = data.Camel || 0;
+  }).getDashboardStats();
+}
+
+function search(){
+  let val = document.getElementById("search").value;
+
+  google.script.run.withSuccessHandler(res=>{
+
+    let html = "";
+
+    if(!res || res.length === 0){
+      html = "<p>No record found</p>";
+    } else {
+      res.forEach(r=>{
+        html += `
+          <div class="item">
+            <b>${r.vNo}</b><br>
+            ${r.branch}<br>
+            ${r.animal} - Qty: ${r.qty}
+          </div>
+        `;
+      });
+    }
+
+    document.getElementById("result").innerHTML = html;
+
+  }).searchVoucher(val);
+}
+
+loadStats();
+
+</script>
+
+</body>
+</html>
