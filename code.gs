@@ -41,16 +41,34 @@ function saveTokens(dataArray) {
   var pendingSheet = ss.getSheetByName("Pending_Storage") || ss.insertSheet("Pending_Storage");
   var masterSheet = ss.getSheetByName("Master_Received_Log") || ss.insertSheet("Master_Received_Log");
 
+  // Add headers if sheet is empty
   if (pendingSheet.getLastRow() === 0) {
-    pendingSheet.appendRow(["Animal", "Rate", "DN", "Donor", "Qty", "Branch", "Date", "Category"]);
+    pendingSheet.appendRow(["Animal", "Rate", "DN", "Donor", "Qty", "Branch", "Date", "Category", "EntryDate"]);
+  }
+  if (masterSheet.getLastRow() === 0) {
+    masterSheet.appendRow(["Animal", "Rate", "DN", "Donor", "Qty", "Branch", "Date", "Category", "EntryDate"]);
   }
 
   dataArray.forEach(function (row) {
-    var rowData = [row.animal, row.rate, row.dn, row.donor, row.qty, row.branch, new Date(), row.animal_cat];
+    var entryDate = row.entryDate ? new Date(row.entryDate) : new Date();
+    
+    var rowData = [
+      row.animal, 
+      row.rate, 
+      row.dn, 
+      row.donor, 
+      row.qty, 
+      row.branch, 
+      new Date(),           // System Date (Receipt Time)
+      row.animal_cat,
+      entryDate             // ← New: User Selected Entry Date
+    ];
+
     pendingSheet.appendRow(rowData);
     masterSheet.appendRow(rowData);
   });
-  return "Data Saved Successfully!";
+
+  return "Data Saved Successfully! (" + dataArray.length + " records)";
 }
 
 function processBulkIssue(items, mainBranch) {
@@ -473,4 +491,82 @@ function getFullPendingStock() {
 function generateFullStockPDF(data) {
   // Yeh client side pe call hoga
   // Hum JS mein PDF bana rahe hain
+}
+function verifyMultipleDNs(dnList) {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var sheet = ss.getSheetByName("Used_Storage");
+  if (!sheet) return {};
+
+  var data = sheet.getDataRange().getValues();
+  var resultMap = {}; // DN -> array of records
+
+  dnList.forEach(dn => {
+    resultMap[dn] = [];
+  });
+
+  for (var i = 1; i < data.length; i++) {
+    var rowDN = data[i][2] ? data[i][2].toString().trim() : "";
+    
+    if (resultMap.hasOwnProperty(rowDN)) {
+      var qty = Number(data[i][4]);
+      var verified = Number(data[i][10] || 0);
+
+      resultMap[rowDN].push({
+        row: i + 1,
+        animal: data[i][0],
+        rate: data[i][1],
+        qty: qty,
+        verified: verified,
+        remaining: qty - verified,
+        branch: data[i][5],
+        voucher: data[i][7],
+        type: data[i][8]
+      });
+    }
+  }
+
+  return resultMap;
+}
+function getReceivedReport(monthYear, branchFilter, animalFilter) {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var sheet = ss.getSheetByName("Master_Received_Log");
+  if (!sheet) return [];
+
+  var data = sheet.getDataRange().getValues();
+  var result = [];
+
+  for (var i = 1; i < data.length; i++) {
+    var row = data[i];
+    
+    var entryDate = row[8]; // EntryDate column (index 8)
+    if (!(entryDate instanceof Date)) continue;
+
+    var rowMonth = Utilities.formatDate(entryDate, "GMT+5", "yyyy-MM");
+    
+    // Filter by month
+    if (monthYear && rowMonth !== monthYear) continue;
+    
+    // Filter by branch
+    if (branchFilter !== "ALL" && row[5] !== branchFilter) continue;
+    
+    // Filter by animal
+    if (animalFilter !== "ALL" && row[0] !== animalFilter) continue;
+
+    result.push({
+      date: Utilities.formatDate(entryDate, "GMT+5", "dd-MM-yyyy"),
+      entryDate: row[8] ? Utilities.formatDate(new Date(row[8]), "GMT+5", "dd-MM-yyyy") : "",
+      animal: row[0],
+      rate: row[1],
+      dn: row[2],
+      donor: row[3],
+      qty: Number(row[4]),
+      branch: row[5],
+      category: row[7] || ""
+    });
+  }
+
+  // Sort by date descending
+  result.sort((a, b) => new Date(b.entryDate) - new Date(a.entryDate));
+  
+  return result;
 }

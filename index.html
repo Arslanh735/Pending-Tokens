@@ -391,6 +391,10 @@
       color: #999;
       margin-top: 15px;
     }
+
+    @keyframes spin {
+    to { transform: rotate(360deg); }
+}
   </style>
 </head>
 
@@ -403,6 +407,7 @@
       <li onclick="showPage('reports')" id="mi-reports">📜 Issued Records</li>
       <li onclick="showPage('branches')" id="mi-branches">🏢 Branches Detail</li>
       <li onclick="showPage('verify')" id="mi-verify">✅ Verify DN</li>
+      <li onclick="showPage('received')" id="mi-received">📥 Received Reports</li>
     </ul>
     <button onclick="toggleTheme()" class="btn" style="margin-top:20px; color: var(--text-dim); background: var(--card-bg); border: 1px solid var(--border);">🌓 Toggle Theme</button>
   </aside>
@@ -468,23 +473,107 @@
     </section>
 
     <section id="page-entry" class="page-section">
-      <h1>Bulk Stock Loader</h1>
-      <p style="color:var(--text-dim); margin-bottom:20px;">Select common details then paste Excel data below.</p>
-      <div id="bulk-entry-area">
-        <div style="display:grid; grid-template-columns: repeat(3, 1fr); gap:15px; margin-bottom:20px;">
-          <div><label>Animal</label><select id="bulk-animal" onchange="updateRates()"></select></div>
-          <div>
-            <label>Category</label><select id="bulk-cat"><option>SADQA</option><option>AQIQAH</option><option>WALIMA</option><option>FIDYA</option></select>
-          </div>
-          <div><label>Receiving Branch</label><select id="bulk-branch"></select></div>
-        </div>
-        <div style="margin-bottom:15px;">
-          <label>Paste Excel Data (Columns: Rate | DN# | Donor Name | Qty)</label>
-          <textarea id="excel-paste" rows="10" placeholder="1000	DN-001	Ahmed	5" style="margin-top:8px;"></textarea>
-        </div>
-        <button class="btn btn-primary" style="width:100%; padding:15px; justify-content:center;" onclick="processExcel()"> Save All to Master Log</button>
+  <h1>Bulk Stock Loader</h1>
+  <p style="color:var(--text-dim); margin-bottom:20px;">Select Date, common details then paste Excel data below.</p>
+  
+  <div id="bulk-entry-area">
+    <div style="display:grid; grid-template-columns: repeat(4, 1fr); gap:15px; margin-bottom:20px;">
+      
+      <!-- New Date Field -->
+      <div>
+        <label>Entry Date <span style="color:#ef4444;">*</span></label>
+        <input type="date" id="bulk-date" style="width:100%;">
       </div>
-    </section>
+      
+      <div>
+        <label>Animal</label>
+        <select id="bulk-animal" onchange="updateRates()"></select>
+      </div>
+      
+      <div>
+        <label>Category</label>
+        <select id="bulk-cat">
+          <option>SADQA</option>
+          <option>AQIQAH</option>
+          <option>WALIMA</option>
+          <option>FIDYA</option>
+        </select>
+      </div>
+      
+      <div>
+        <label>Receiving Branch</label>
+        <select id="bulk-branch"></select>
+      </div>
+    </div>
+
+    <div style="margin-bottom:15px;">
+      <label>Paste Excel Data (Columns: Rate | DN# | Donor Name | Qty)</label>
+      <textarea id="excel-paste" rows="10" placeholder="1000	DN-001	Ahmed	5" 
+        style="margin-top:8px; font-family:monospace;"></textarea>
+    </div>
+    
+    <button class="btn btn-primary" style="width:100%; padding:15px; justify-content:center;" 
+      onclick="processExcel()">
+      💾 Save All to Master Log
+    </button>
+  </div>
+</section>
+
+<section id="page-received" class="page-section">
+  <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
+    <div>
+      <h1>Received Stock Reports</h1>
+      <p style="color:var(--text-dim);">Filter by Month, Branch & Animal</p>
+    </div>
+    <button class="btn btn-primary" onclick="downloadReceivedPDF()" style="padding:10px 20px;">
+      📄 Download PDF
+    </button>
+  </div>
+  
+  <div class="stat-card" style="display:grid; grid-template-columns: repeat(4, 1fr); gap:15px; padding:20px; margin-bottom:20px;">
+    <div>
+      <label>Month & Year</label>
+      <input type="month" id="r-month" onchange="loadReceivedReport()">
+    </div>
+    <div>
+      <label>Branch</label>
+      <select id="r-branch" onchange="loadReceivedReport()">
+        <option value="ALL">All Branches</option>
+      </select>
+    </div>
+    <div>
+      <label>Animal</label>
+      <select id="r-animal" onchange="loadReceivedReport()">
+        <option value="ALL">All Animals</option>
+      </select>
+    </div>
+    <div style="display:flex; align-items:flex-end;">
+      <button class="btn btn-primary" onclick="loadReceivedReport()" style="width:100%;">
+        🔄 Load Report
+      </button>
+    </div>
+  </div>
+
+  <div class="table-container" id="received-print-area">
+    <table>
+      <thead>
+        <tr>
+          <th>Date</th>
+          <th>Animal</th>
+          <th>Category</th>
+          <th>Rate</th>
+          <th>Branch</th>
+          <th>Qty</th>
+          <th>DN #</th>
+          <th>Donor</th>
+        </tr>
+      </thead>
+      <tbody id="received-body"></tbody>
+    </table>
+  </div>
+
+  <div id="received-summary" style="margin-top:20px; font-size:1.1rem; font-weight:700; color:var(--primary); text-align:right;"></div>
+</section>
 
     <section id="page-reports" class="page-section">
       <div style="display:flex; justify-content:space-between; margin-bottom:20px;">
@@ -529,17 +618,18 @@
 </section>
 <section id="page-verify" class="page-section">
   <h1>DN Verification</h1>
-
+  <p style="color:var(--text-dim); margin-bottom:15px;">Paste multiple DN numbers (one per line)</p>
+  
   <div class="stat-card">
-    <input type="text" id="verify-dn" placeholder="Enter DN Number">
-
-    <button class="btn btn-primary"
-      onclick="verifyDN()"
-      style="margin-top:15px;">
-      Verify DN
+    <textarea id="verify-dns" rows="8" placeholder="DN-001&#10;DN-002&#10;DN-003" 
+      style="width:100%; font-family:monospace; resize:vertical;"></textarea>
+    
+    <button class="btn btn-primary" style="margin-top:15px; width:100%; padding:14px;"
+      onclick="verifyMultipleDNs()">
+      🔍 Verify All DNs
     </button>
 
-    <div id="verify-result" style="margin-top:20px;"></div>
+    <div id="verify-result" style="margin-top:25px;"></div>
   </div>
 </section>
   </main>
@@ -595,7 +685,7 @@
 </div>
 
   <script>
-    const branches = ["Airport Cantt (Shah Faisal)", "Aliyabad Br (Shah Faisal)", "Ameer Hamza (Muhammad Ismail Attari)", "Bahria town (Tehseen)", "Bait-ul-Mukarram Branch (Shah Faisal)", "Bhains Colony (Shah Faisal)", "Boultan Br (Atif raza)", "Burns Road (Atif raza)", "Call Center", "Chamra Chowrangi (Humayoon)", "Civil Br (Atif raza)", "Clifton Br (M. Aamir)", "Cloth Market (Atif raza)", "DHA Badar (Shahid Ansari)", "DHA Bukhari Commercial (Shahid Ansari)", "DHA Delton (Shahid Ansari)", "DHA Jammi Commercial (Shahid Ansari)", "DHA Saylani House (Shahid Ansari)", "DHA Sehar Commercial (Shahid Ansari)", "DHA Touheed Commercial (M. Aamir)", "DHA Zamzama (M. Aamir)", "Garden (Arbaz Hamdani)", "Ghani Chowrangi (Muhammad Ismail Attari)", "Godam Goat", "Gulshan Maskan (Shah Faisal)", "Hadiabad (Tehseen)", "Hasan Square", "Head Office", "Highway Slaughter", "Hill Park (Ahmed Raza)", "Jinnah Avenue (Shah Faisal)", "Jinnah Square (Shah Faisal)", "Johar Br (Abdul Basit)", "Kharadar (Atif raza)", "Korangi Slaughter", "Korangi-4 (Humayoon)", "Logistic Center (Arbaz Hamdani)", "M.Ali Society (Ahmed Raza)", "Malir Halt (Shah Faisal)", "Mehran Town (Ahmed Raza)", "Mosmiyat Br (Abdul Basit)", "Nazimabad No 03", "New Gulshan (Shah Faisal)", "North Karachi (Shah Faisal)", "Numaish Darulkafala (Arbaz Hamdani)", "Orangi Town (Muhammad Ismail Attari)", "Paposh (Muhammad Ismail Attari)", "Port Qasim (Shah Faisal)", "Punjab Chowrangi (M. Aamir)", "Quyyumabad (Shahid Ansari)", "Saddar (Arbaz Hamdani)", "Shadman (Shah Faisal)", "Shahrah-e-Faisal (Shahid Ansari)", "Siemens Br (Muhammad Ismail Attari)", "Star Gate (Shah Faisal)", "Tipu Sultan (Ahmed Raza)", "Water Pump (Shah Faisal)", "Hydarabad (Accounts)", "Hydarabad (Goat & Meat)", "Lahore", "Islamabad", "Faisalabad", "Faisalabad (Mian Imran)", "Quetta", "Peshawar", "Multan", "Bhawalpur", "Gujranwala"];
+    const branches = ["Airport Cantt (Shah Faisal)", "Aliyabad Br (Shah Faisal)", "Ameer Hamza (Muhammad Ismail Attari)", "Bahria town (Tehseen)", "Bait-ul-Mukarram Branch (Shah Faisal)", "Bhains Colony (Shah Faisal)", "Boultan Br (Atif raza)", "Burns Road (Atif raza)", "Call Center", "Chamra Chowrangi (Humayoon)", "Civil Br (Atif raza)", "Clifton Br (M. Aamir)", "Cloth Market (Atif raza)", "DHA Badar (Shahid Ansari)", "DHA Bukhari Commercial (Shahid Ansari)", "DHA Delton (Shahid Ansari)", "DHA Jammi Commercial (Shahid Ansari)", "DHA Saylani House (Shahid Ansari)", "DHA Sehar Commercial (Shahid Ansari)", "DHA Touheed Commercial (M. Aamir)", "DHA Zamzama (M. Aamir)", "Garden (Arbaz Hamdani)", "Ghani Chowrangi (Muhammad Ismail Attari)", "Godam Goat", "Gulshan Maskan (Shah Faisal)", "Hadiabad (Tehseen)", "Hasan Square", "Head Office", "Highway Slaughter", "Hill Park (Ahmed Raza)", "Jinnah Avenue (Shah Faisal)", "Jinnah Square (Shah Faisal)", "Johar Br (Abdul Basit)", "Kharadar (Atif raza)", "Korangi Slaughter", "Korangi-4 (Humayoon)", "Logistic Center (Arbaz Hamdani)", "M.Ali Society (Ahmed Raza)", "Malir Halt (Shah Faisal)", "Mehran Town (Ahmed Raza)", "Mosmiyat Br (Abdul Basit)", "Nazimabad No 03", "New Gulshan (Shah Faisal)", "North Karachi (Shah Faisal)", "Numaish Darulkafala (Arbaz Hamdani)", "Orangi Town (Muhammad Ismail Attari)", "Paposh (Muhammad Ismail Attari)", "Port Qasim (Shah Faisal)", "Punjab Chowrangi (M. Aamir)", "Quyyumabad (Shahid Ansari)", "Saddar (Arbaz Hamdani)", "Shadman (Shah Faisal)", "Shahrah-e-Faisal (Shahid Ansari)", "Siemens Br (Muhammad Ismail Attari)", "Star Gate (Shah Faisal)", "Tipu Sultan (Ahmed Raza)", "Water Pump (Shah Faisal)", "Hydarabad (Accounts)", "Hydarabad (Goat & Meat)", "Lahore", "Islamabad", "Faisalabad", "Faisalabad (Mian Imran)", "Quetta", "Peshawar", "Multan", "Bhawalpur", "Gujranwala", "Tarbiyati Dept.(Madni Raza)"];
     const rates = { "Chicken": [1000], "Goat": [12000, 14000, 15000, 16000, 18000, 20000, 22000, 25000, 30000, 35000], "Cow": [70000, 80000, 90000], "Camel": [150000] };
     let myChart = null, masterData = [];
 
@@ -849,19 +939,22 @@ function loadTrendChart() {
 
     function processExcel() {
     const btn = document.querySelector('#bulk-entry-area button.btn-primary');
-    if (!btn || btn.disabled) return;   // Extra safety
-
     const originalText = btn.innerHTML;
-    
-    // Disable button
+
     btn.disabled = true;
     btn.innerHTML = '⏳ Saving...';
-    btn.style.opacity = '0.7';
 
+    const entryDate = document.getElementById('bulk-date').value;
     const animal = document.getElementById('bulk-animal').value;
     const cat = document.getElementById('bulk-cat').value;
     const branch = document.getElementById('bulk-branch').value;
     const text = document.getElementById('excel-paste').value.trim();
+
+    if (!entryDate) {
+        alert("Please select Entry Date!");
+        resetBtn(btn, originalText);
+        return;
+    }
 
     if (!text) {
         alert("Please paste data!");
@@ -880,7 +973,8 @@ function loadTrendChart() {
             rate: parts[0].trim(),
             dn: parts[1].trim(),
             donor: parts[2].trim(),
-            qty: parts[3].trim()
+            qty: parts[3].trim(),
+            entryDate: entryDate   // ← New field
         }));
 
     if (data.length === 0) {
@@ -928,16 +1022,62 @@ function resetBtn(btn, originalText) {
     }
 
     function submitBulkIssue() {
-      let items = [];
-      document.querySelectorAll('#bulk-issue-list .issue-row-ui').forEach(row => {
-        items.push({ animal: row.querySelector('.bi-animal').value, category: row.querySelector('.bi-cat').value, rate: row.querySelector('.bi-rate').value, qty: row.querySelector('.bi-qty').value });
-      });
-      if(items.length === 0) return alert("Add at least one item");
-      google.script.run.withSuccessHandler(res => {
-        if(res.status === "OK") { renderVoucher(res); updateDashboard(); closeModal('issueModal'); }
-        else alert(res.msg);
-      }).processBulkIssue(items, document.getElementById('main-issue-branch').value);
+    const generateBtn = document.querySelector('#issueModal .btn-primary');
+    if (!generateBtn) return;
+
+    const originalText = generateBtn.innerHTML;
+    
+    // Show loader and disable button
+    generateBtn.disabled = true;
+    generateBtn.innerHTML = `
+        <span style="display:inline-block; width:16px; height:16px; border:3px solid #ffffff; border-top-color:transparent; border-radius:50%; animation:spin 1s linear infinite; margin-right:8px; vertical-align:middle;"></span>
+        Processing...
+    `;
+
+    let items = [];
+    document.querySelectorAll('#bulk-issue-list .issue-row-ui').forEach(row => {
+        const qtyInput = row.querySelector('.bi-qty');
+        if (qtyInput && qtyInput.value) {
+            items.push({
+                animal: row.querySelector('.bi-animal').value,
+                category: row.querySelector('.bi-cat').value,
+                rate: row.querySelector('.bi-rate').value,
+                qty: qtyInput.value
+            });
+        }
+    });
+
+    if (items.length === 0) {
+        alert("Add at least one item");
+        resetGenerateButton(generateBtn, originalText);
+        return;
     }
+
+    google.script.run
+        .withSuccessHandler(res => {
+            resetGenerateButton(generateBtn, originalText);
+            
+            if (res.status === "OK") {
+                renderVoucher(res);
+                updateDashboard();
+                closeModal('issueModal');
+            } else {
+                alert(res.msg || "Error occurred");
+            }
+        })
+        .withFailureHandler(err => {
+            console.error(err);
+            resetGenerateButton(generateBtn, originalText);
+            alert("Error: " + err.message || err);
+        })
+        .processBulkIssue(items, document.getElementById('main-issue-branch').value);
+}
+
+// Helper function to reset button
+function resetGenerateButton(btn, originalText) {
+    btn.disabled = false;
+    btn.innerHTML = originalText;
+}
 
 let lastV_Number = localStorage.getItem('lastV_No') ? parseInt(localStorage.getItem('lastV_No')) : 0;
 
@@ -1285,6 +1425,7 @@ function downloadPDF() {
         Object.keys(rates).forEach(a => el.innerHTML += `<option>${a}</option>`);
       });
       updateDashboard();
+      populateReceivedFilters();
     };
     function updateRates() {}
 
@@ -1443,75 +1584,123 @@ function filterBranches() {
     }
   });
 }
-function verifyDN() {
-
-  const dn = document.getElementById('verify-dn').value.trim();
-
-  if(!dn) return alert("Enter DN Number");
-
-  google.script.run.withSuccessHandler(res => {
-
-    let html = "";
-
-    if(res.length === 0){
-      html = "<p style='color:red;'>DN not found</p>";
-    }
-    else{
-
-      res.forEach(r => {
-
-        html += `
-        <div style="
-          border:1px solid var(--border);
-          padding:15px;
-          border-radius:10px;
-          margin-bottom:10px;">
-
-          <h3>${r.animal}</h3>
-
-          <p><b>Branch:</b> ${r.branch}</p>
-          <p><b>Voucher:</b> ${r.voucher}</p>
-          <p><b>Category:</b> ${r.type}</p>
-
-          <p><b>Total Qty:</b> ${r.qty}</p>
-          <p><b>Used:</b> ${r.verified}</p>
-          <p><b>Remaining:</b> ${r.remaining}</p>
-
-          ${
-            r.remaining > 0
-            ?
-            `<button class="btn btn-primary"
-              onclick="consumeDN(${r.row})">
-              Mark as Used
-            </button>`
-            :
-            `<span style="color:red; font-weight:bold;">
-              Limit Completed
-            </span>`
-          }
-
-        </div>
-        `;
-      });
+// ====================== MULTIPLE DN VERIFY ======================
+function verifyMultipleDNs() {
+    const textarea = document.getElementById('verify-dns');
+    const dnsText = textarea.value.trim();
+    
+    if (!dnsText) {
+        alert("Please enter at least one DN number");
+        return;
     }
 
-    document.getElementById('verify-result').innerHTML = html;
+    const dnsList = dnsText.split('\n')
+        .map(dn => dn.trim())
+        .filter(dn => dn.length > 0);
 
-  }).verifyDN(dn);
+    if (dnsList.length === 0) return alert("No valid DN found");
+
+    // Show loading
+    const resultDiv = document.getElementById('verify-result');
+    resultDiv.innerHTML = `<p style="text-align:center; padding:30px;">Verifying ${dnsList.length} DNs...</p>`;
+
+    google.script.run
+        .withSuccessHandler(results => {
+            renderMultipleVerifyResults(results, dnsList);
+        })
+        .withFailureHandler(err => {
+            console.error(err);
+            resultDiv.innerHTML = `<p style="color:red;">Error: ${err}</p>`;
+        })
+        .verifyMultipleDNs(dnsList);   // New server function needed
 }
-function consumeDN(rowNo){
 
-  google.script.run.withSuccessHandler(res => {
+// New function to render results
+function renderMultipleVerifyResults(serverResults, requestedDNs) {
+    const resultDiv = document.getElementById('verify-result');
+    let html = `<h3 style="margin-bottom:15px;">Verification Results (${requestedDNs.length} DNs)</h3>`;
 
-    if(res === "OK"){
-      alert("DN Verified Successfully");
-      verifyDN();
+    if (Object.keys(serverResults).length === 0) {
+        html += `<p style="color:orange;">No records found for any of the entered DNs.</p>`;
+        resultDiv.innerHTML = html;
+        return;
     }
-    else{
-      alert("Quantity Limit Exceeded");
-    }
 
-  }).consumeDN(rowNo);
+    html += `
+        <table style="width:100%; border-collapse:collapse;">
+            <thead>
+                <tr style="background:var(--primary); color:white;">
+                    <th style="padding:12px; text-align:left;">DN Number</th>
+                    <th>Animal</th>
+                    <th>Branch</th>
+                    <th>Voucher</th>
+                    <th>Total Qty</th>
+                    <th>Used</th>
+                    <th>Remaining</th>
+                    <th>Action</th>
+                </tr>
+            </thead>
+            <tbody>
+    `;
+
+    requestedDNs.forEach(dn => {
+        const records = serverResults[dn] || [];
+        
+        if (records.length === 0) {
+            html += `
+                <tr style="background:rgba(234, 179, 8, 0.1);">
+                    <td style="padding:12px; font-weight:bold;">${dn}</td>
+                    <td colspan="7" style="color:orange; text-align:center;">Not Found</td>
+                </tr>`;
+            return;
+        }
+
+        records.forEach((r, index) => {
+            const isLast = index === records.length - 1;
+            const canVerify = r.remaining > 0;
+            
+            html += `
+                <tr style="border-bottom:1px solid var(--border); ${isLast ? '' : 'margin-bottom:8px;'}">
+                    <td style="padding:12px; font-weight:bold;">${dn}</td>
+                    <td>${r.animal}</td>
+                    <td>${r.branch}</td>
+                    <td>${r.voucher}</td>
+                    <td style="text-align:center; font-weight:600;">${r.qty}</td>
+                    <td style="text-align:center;">${r.verified}</td>
+                    <td style="text-align:center; font-weight:700; color:${r.remaining > 0 ? '#10b981' : '#ef4444'};">
+                        ${r.remaining}
+                    </td>
+                    <td>
+                        ${canVerify ? 
+                            `<button class="btn btn-primary btn-small" onclick="consumeDN(${r.row}, '${dn}')">
+                                Mark as Used
+                            </button>` : 
+                            `<span style="color:#ef4444; font-weight:bold; font-size:12px;">✓ Limit Completed</span>`
+                        }
+                    </td>
+                </tr>`;
+        });
+    });
+
+    html += `</tbody></table>`;
+    resultDiv.innerHTML = html;
+}
+
+// Updated consumeDN to refresh after use
+function consumeDN(rowNo, dn) {
+    google.script.run
+        .withSuccessHandler(res => {
+            if (res === "OK") {
+                alert("DN Verified Successfully!");
+                verifyMultipleDNs(); // Refresh the list
+            } else {
+                alert("Quantity Limit Exceeded");
+            }
+        })
+        .withFailureHandler(err => {
+            alert("Error: " + err);
+        })
+        .consumeDN(rowNo);
 }
 // ====================== FULL STOCK REPORT PDF ======================
 function downloadFullStockReport() {
@@ -1606,6 +1795,136 @@ function generateFullStockPDF(data) {
   const opt = {
     margin: 0.4,
     filename: `Pending_Stock_Summary_${new Date().toLocaleDateString('en-GB')}.pdf`,
+    html2canvas: { scale: 2 },
+    jsPDF: { unit: 'in', format: 'a4', orientation: 'portrait' }
+  };
+
+  html2pdf().set(opt).from(container).save().then(() => {
+    container.style.display = 'none';
+  });
+}
+// Received Reports Functions
+function loadReceivedReport() {
+  const monthYear = document.getElementById('r-month').value; // yyyy-mm
+  const branch = document.getElementById('r-branch').value;
+  const animal = document.getElementById('r-animal').value;
+
+  google.script.run
+    .withSuccessHandler(data => {
+      renderReceivedReport(data, monthYear, branch, animal);
+    })
+    .withFailureHandler(err => {
+      console.error(err);
+      document.getElementById('received-body').innerHTML = 
+        `<tr><td colspan="8" style="text-align:center; padding:30px; color:red;">Error loading report</td></tr>`;
+    })
+    .getReceivedReport(monthYear, branch, animal);
+}
+
+function renderReceivedReport(data, monthYear, branch, animal) {
+  const tbody = document.getElementById('received-body');
+  let html = "";
+  let totalQty = 0;
+
+  if (!data || data.length === 0) {
+    html = `<tr><td colspan="8" style="text-align:center; padding:40px;">No records found for selected filters.</td></tr>`;
+  } else {
+    data.forEach(row => {
+      totalQty += Number(row.qty || 0);
+      html += `
+        <tr>
+          <td>${row.entryDate || row.date}</td>
+          <td>${row.animal}</td>
+          <td>${row.category}</td>
+          <td>${row.rate}</td>
+          <td>${row.branch}</td>
+          <td style="font-weight:700;">${row.qty}</td>
+          <td>${row.dn}</td>
+          <td>${row.donor}</td>
+        </tr>`;
+    });
+  }
+
+  tbody.innerHTML = html;
+
+  const summary = document.getElementById('received-summary');
+  summary.innerHTML = `
+    <strong>Total Records:</strong> ${data.length} &nbsp;&nbsp;&nbsp; 
+    <strong>Total Quantity:</strong> ${totalQty}
+  `;
+}
+
+// Populate filters on load
+function populateReceivedFilters() {
+  // Branch
+  const branchSelect = document.getElementById('r-branch');
+  branches.forEach(b => {
+    branchSelect.innerHTML += `<option value="${b}">${b}</option>`;
+  });
+
+  // Animal
+  const animalSelect = document.getElementById('r-animal');
+  Object.keys(rates).forEach(a => {
+    animalSelect.innerHTML += `<option value="${a}">${a}</option>`;
+  });
+
+  // Default current month
+  const today = new Date();
+  const currentMonth = today.toISOString().slice(0, 7); // yyyy-mm
+  document.getElementById('r-month').value = currentMonth;
+}
+// ====================== DOWNLOAD RECEIVED REPORT PDF ======================
+function downloadReceivedPDF() {
+  const monthYear = document.getElementById('r-month').value;
+  const branch = document.getElementById('r-branch').value;
+  const animal = document.getElementById('r-animal').value;
+
+  const tbody = document.getElementById('received-body');
+  const rows = tbody.querySelectorAll('tr');
+
+  if (rows.length === 0 || rows[0].cells.length === 1) {
+    alert("Please load report first before downloading PDF!");
+    return;
+  }
+
+  const container = document.getElementById('v-print');
+  container.innerHTML = '';
+  container.style.display = 'block';
+
+  let reportTitle = `Received Stock Report - ${monthYear || 'All Months'}`;
+  if (branch !== "ALL") reportTitle += ` | ${branch}`;
+  if (animal !== "ALL") reportTitle += ` | ${animal}`;
+
+  let html = `
+    <div style="padding:20px; font-family:Arial, sans-serif; background:white; color:#000;">
+      <h1 style="text-align:center; color:#1a237e;">SAYLANI WELFARE INTERNATIONAL TRUST</h1>
+      <h2 style="text-align:center; color:#ef4444; margin:10px 0;">${reportTitle}</h2>
+      <p style="text-align:center; color:#555;">Printed on: ${new Date().toLocaleDateString('en-GB')}</p>
+      <hr style="border:1.5px solid #ddd; margin:20px 0;">
+  `;
+
+  // Clone the table for clean printing
+  const tableClone = document.getElementById('received-print-area').querySelector('table').cloneNode(true);
+  html += tableClone.outerHTML;
+
+  const totalQty = document.getElementById('received-summary').innerText || '';
+
+  html += `
+      <div style="margin-top:30px; text-align:right; font-weight:bold; font-size:1.1rem;">
+        ${totalQty}
+      </div>
+      <div style="margin-top:40px; text-align:center; color:#666; font-size:12px;">
+        Generated by Saylani ERP Elite • Goat & Meat Department
+      </div>
+    </div>
+  `;
+
+  container.innerHTML = html;
+
+  const opt = {
+    margin: 0.5,
+    filename: `Received_Report_${monthYear || 'All'}.pdf`,
+    image: { type: 'jpeg', quality: 0.98 },
     html2canvas: { scale: 2 },
     jsPDF: { unit: 'in', format: 'a4', orientation: 'portrait' }
   };
